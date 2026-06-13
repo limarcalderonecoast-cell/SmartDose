@@ -83,7 +83,7 @@ export async function apiConnectDevice(): Promise<DeviceState> {
 
   return {
     isConnected: data.isConnected ?? true,
-    mode: 'WiFi' as const,
+    mode: 'Wi-Fi' as const,
     firmwareVersion: data.firmwareVersion ?? 'ESP32 v1.2.0',
     signalStrength: data.signalStrength ?? 'Fair',
     trayState: data.trayState ?? 'Idle',

@@ -220,32 +220,34 @@ export default function AppWeb() {
   }, []);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setAppState((currentState) => {
-        if (!currentState) {
-          return currentState;
-        }
+    const intervalId = window.setInterval(async () => {
+      const currentState = appStateRef.current;
+      if (!currentState) {
+        return;
+      }
 
-        const logs = reconcileLogs(currentState.schedules, currentState.logs);
-        const activeLog = getActiveLog(logs);
-        const nextState: AppState = {
-          ...currentState,
-          logs,
-          device: heartbeatDevice(
-            currentState.device,
-            activeLog
-              ? {
-                  medicineName: activeLog.medicineName,
-                  compartment: activeLog.compartment,
-                }
-              : undefined
-          ),
-        };
+      const logs = reconcileLogs(currentState.schedules, currentState.logs);
+      const activeLog = getActiveLog(logs);
+      
+      const updatedDevice = await heartbeatDevice(
+        currentState.device,
+        activeLog
+          ? {
+              medicineName: activeLog.medicineName,
+              compartment: activeLog.compartment,
+            }
+          : undefined
+      );
 
-        appStateRef.current = nextState;
-        void saveAppState(nextState);
-        return nextState;
-      });
+      const nextState: AppState = {
+        ...currentState,
+        logs,
+        device: updatedDevice,
+      };
+
+      appStateRef.current = nextState;
+      await saveAppState(nextState);
+      setAppState(nextState);
     }, 30000);
 
     return () => window.clearInterval(intervalId);
@@ -427,21 +429,18 @@ export default function AppWeb() {
       return;
     }
 
+    let updatedDevice = { ...currentState.device, mode };
+    
+    if (currentState.device.isConnected) {
+      updatedDevice = await disconnectDevice(updatedDevice);
+      updatedDevice.lastEvent = `${mode} selected. Reconnect to use the new transport.`;
+    } else {
+      updatedDevice.lastEvent = `${mode} is ready for the next tray connection.`;
+    }
+
     await commitState({
       ...currentState,
-      device: currentState.device.isConnected
-        ? {
-            ...disconnectDevice({
-              ...currentState.device,
-              mode,
-            }),
-            lastEvent: `${mode} selected. Reconnect to use the new transport.`,
-          }
-        : {
-            ...currentState.device,
-            mode,
-            lastEvent: `${mode} is ready for the next tray connection.`,
-          },
+      device: updatedDevice,
     });
   };
 
@@ -452,9 +451,11 @@ export default function AppWeb() {
     }
 
     if (currentState.device.isConnected) {
+      const disconnectedDevice = await disconnectDevice(currentState.device);
+      
       await commitState({
         ...currentState,
-        device: disconnectDevice(currentState.device),
+        device: disconnectedDevice,
       });
       return;
     }

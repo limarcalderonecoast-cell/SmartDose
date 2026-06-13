@@ -29,6 +29,7 @@ export interface MedicineSchedule {
   enabled: boolean;
   notificationId: string | null;
   lastSyncedAt: string | null;
+  audioReminder?: AudioReminder | null;
 }
 
 export interface MedicineLog {
